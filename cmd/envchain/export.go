@@ -14,8 +14,9 @@ var exportCmd = &cobra.Command{
 	Short: "Export resolved environment variables",
 	Long: `Resolve and print environment variables for the given environment.
 Supports shell, dotenv, and json output formats.`,
-	Args: cobra.ExactArgs(1),
-	RunE: runExport,
+	Args:              cobra.ExactArgs(1),
+	RunE:              runExport,
+	ValidArgsFunction: completeEnvNames,
 }
 
 var (
@@ -46,6 +47,10 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loading chain: %w", err)
 	}
 
+	if err := validateExportFormat(exportFormat); err != nil {
+		return err
+	}
+
 	opts := config.ExportOptions{
 		Format:   config.ExportFormat(exportFormat),
 		Redact:   exportRedact,
@@ -56,4 +61,15 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("export %q: %w", env, err)
 	}
 	return nil
+}
+
+// validateExportFormat checks that the provided format string is one of the
+// supported output formats (shell, dotenv, json).
+func validateExportFormat(format string) error {
+	switch format {
+	case "shell", "dotenv", "json":
+		return nil
+	default:
+		return fmt.Errorf("unsupported format %q: must be one of shell, dotenv, json", format)
+	}
 }
