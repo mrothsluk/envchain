@@ -107,3 +107,23 @@ func TestExportUnknownFormatReturnsError(t *testing.T) {
 		t.Fatal("expected error for unknown format, got nil")
 	}
 }
+
+// TestExportDevInheritsBaseVars verifies that env-specific exports include
+// variables defined only in the base layer (i.e. inheritance works correctly).
+func TestExportDevInheritsBaseVars(t *testing.T) {
+	c := buildTestChain(t)
+	var buf strings.Builder
+	err := Export(c, "dev", ExportOptions{Format: FormatDotenv, SortKeys: true}, &buf)
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	out := buf.String()
+	// APP_NAME is only defined in base, but should appear when exporting dev.
+	if !strings.Contains(out, "APP_NAME=myapp") {
+		t.Errorf("expected inherited APP_NAME from base layer, got:\n%s", out)
+	}
+	// DB_HOST should reflect the dev override, not the base value.
+	if strings.Contains(out, "DB_HOST=localhost") {
+		t.Errorf("expected dev override of DB_HOST, but got base value:\n%s", out)
+	}
+}
