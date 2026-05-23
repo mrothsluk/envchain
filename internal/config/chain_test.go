@@ -79,3 +79,20 @@ func TestChainResolveBaseKeyNotOverriddenByOtherLayer(t *testing.T) {
 		t.Errorf("expected SECRET to be absent when resolving base, but got %q", got["SECRET"])
 	}
 }
+
+func TestChainResolveProdInheritsBaseWhenNoProdLayer(t *testing.T) {
+	// When no prod-specific layer is added, prod resolution should fall back to base values.
+	c := NewChain()
+	_ = c.AddLayer(EnvBase, map[string]string{"HOST": "localhost", "PORT": "5432"})
+
+	got, err := c.Resolve(EnvProd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got["HOST"] != "localhost" {
+		t.Errorf("expected HOST from base, got %q", got["HOST"])
+	}
+	if got["PORT"] != "5432" {
+		t.Errorf("expected PORT from base, got %q", got["PORT"])
+	}
+}
