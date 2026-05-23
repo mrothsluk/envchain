@@ -1,66 +1,83 @@
 package config
 
-import (
-	"fmt"
-	"maps"
-)
+import "fmt"
 
-// Env represents a named environment tier.
-type Env string
+// Entry holds a single environment variable value and its metadata.
+type Entry struct {
+	Value  string
+	Secret bool
+}
 
-const (
-	EnvBase    Env = "base"
-	EnvDev     Env = "dev"
-	EnvStaging Env = "staging"
-	EnvProd    Env = "prod"
-)
+// layer holds the entries for one named environment.
+type layer struct {
+	name    string
+	entries map[string]Entry
+}
 
-// envOrder defines the precedence chain: later envs override earlier ones.
-var envOrder = []Env{EnvBase, EnvDev, EnvStaging, EnvProd}
-
-// Chain holds configs for each environment tier.
+// Chain is an ordered stack of named environment layers.
 type Chain struct {
-	layers map[Env]map[string]string
+	order  []string
+	layers map[string]*layer
 }
 
-// NewChain creates an empty Chain.
+// NewChain returns an empty Chain.
 func NewChain() *Chain {
-	return &Chain{layers: make(map[Env]map[string]string)}
+	return &Chain{layers: make(map[string]*layer)}
 }
 
-// AddLayer registers a config map for the given environment tier.
-func (c *Chain) AddLayer(env Env, values map[string]string) error {
-	for _, valid := range envOrder {
-		if env == valid {
-			c.layers[env] = values
-			return nil
-		}
+// AddLayerEntries registers a named layer with the provided entries.
+func (c *Chain) AddLayerEntries(name string, entries map[string]Entry) {
+	c.order = append(c.order, name)
+	c.layers[name] = &layer{name: name, entries: entries}
+}
+
+// Resolve returns the effective Entry for key in the given environment by
+// walking layers in order and returning the last value that matches.
+func (c *Chain) Resolve(env, key string) (Entry, error) {
+	if _, ok := c.layers[env]; !ok {
+		return Entry{}, fmt.Errorf("chain: unknown environment %q", env)
 	}
-	return fmt.Errorf("unknown environment tier: %q", env)
-}
-
-// Resolve merges all layers up to and including the target env,
-// with later tiers taking precedence over earlier ones.
-func (c *Chain) Resolve(target Env) (map[string]string, error) {
-	found := false
-	for _, e := range envOrder {
-		if e == target {
-			found = true
+	var found *Entry
+	for _, name := range c.order {
+		l := c.layers[name]
+		if e, ok := l.entries[key]; ok {
+			e2 := e
+			found = &e2
+		}
+		if name == env {
 			break
 		}
 	}
-	if !found {
-		return nil, fmt.Errorf("unknown environment tier: %q", target)
+	if found == nil {
+		return Entry{}, fmt.Errorf("chain: key %q not found in environment %q", key, env)
 	}
+	return *found, nil
+}
 
-	result := make(map[string]string)
-	for _, e := range envOrder {
-		if layer, ok := c.layers[e]; ok {
-			maps.Copy(result, layer)
+// Envs returns the ordered list of environment names.
+func (c *Chain) Envs() []string {
+	out := make([]string, len(c.order))
+	copy(out, c.order)
+	return out
+}
+
+// Keys returns the union of all keys visible in the given environment.
+func (c *Chain) Keys(env string) ([]string, error) {
+	if _, ok := c.layers[env]; !ok {
+		return nil, fmt.Errorf("chain: unknown environment %q", env)
+	}
+	seen := make(map[string]struct{})
+	for _, name := range c.order {
+		for k := range c.layers[name].entries {
+			seen[k] = struct{}{}
 		}
-		if e == target {
+		if name == env {
 			break
 		}
 	}
-	return result, nil
+	keys := make([]string, 0, len(seen))
+	for k := range seen {
+		keys = append(keys, k)
+	}
+	return keys, nil
 }
