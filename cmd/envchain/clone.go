@@ -32,6 +32,10 @@ func init() {
 func runClone(cmd *cobra.Command, args []string) error {
 	srcEnv, dstEnv := args[0], args[1]
 
+	if srcEnv == dstEnv {
+		return fmt.Errorf("clone: source and destination environments must differ (both are %q)", srcEnv)
+	}
+
 	chain, err := buildChainFromFiles(cloneFiles)
 	if err != nil {
 		return fmt.Errorf("clone: %w", err)
