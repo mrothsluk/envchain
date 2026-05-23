@@ -118,12 +118,12 @@ func TestExportDevInheritsBaseVars(t *testing.T) {
 		t.Fatalf("Export: %v", err)
 	}
 	out := buf.String()
-	// APP_NAME is only defined in base, but should appear when exporting dev.
+	// APP_NAME is only defined in base; it must still appear when exporting dev.
 	if !strings.Contains(out, "APP_NAME=myapp") {
 		t.Errorf("expected inherited APP_NAME from base layer, got:\n%s", out)
 	}
 	// DB_HOST should reflect the dev override, not the base value.
 	if strings.Contains(out, "DB_HOST=localhost") {
-		t.Errorf("expected dev override of DB_HOST, but got base value:\n%s", out)
+		t.Errorf("expected dev override for DB_HOST, but got base value:\n%s", out)
 	}
 }
