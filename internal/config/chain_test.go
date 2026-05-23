@@ -64,3 +64,18 @@ func TestAddLayerUnknownEnvReturnsError(t *testing.T) {
 		t.Fatal("expected error for unknown layer env, got nil")
 	}
 }
+
+func TestChainResolveBaseKeyNotOverriddenByOtherLayer(t *testing.T) {
+	// Ensure that resolving base does not pick up keys defined only in dev.
+	c := NewChain()
+	_ = c.AddLayer(EnvBase, map[string]string{"HOST": "localhost"})
+	_ = c.AddLayer(EnvDev, map[string]string{"SECRET": "dev-secret"})
+
+	got, err := c.Resolve(EnvBase)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := got["SECRET"]; ok {
+		t.Errorf("expected SECRET to be absent when resolving base, but got %q", got["SECRET"])
+	}
+}
